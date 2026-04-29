@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Letter Generator</title>
+    <style>
+        body {
+            font-family: Arial;
+            max-width: 700px;
+            margin: auto;
+            padding: 20px;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+        }
+        button {
+            background-color: #2c7be5;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .spinner {
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #2c7be5;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+<h2>Generate Letter</h2>
+
+<form id="form" method="POST" action="/api/generate-letter/" enctype="multipart/form-data">
+    {% csrf_token %}
+
+    <!-- STEP 1 -->
+    <div id="step1">
+        <h3>Step 1: Basic Info</h3>
+        <input type="text" name="tin" placeholder="TIN" pattern="\d{9}" required>
+        <input type="email" name="email" placeholder="Email" required>
+        <button type="button" onclick="nextStep(2)">Next</button>
+    </div>
+
+    <!-- STEP 2 -->
+    <div id="step2" style="display:none;">
+        <h3>Step 2: Details</h3>
+        <input type="text" name="name" placeholder="Full Name" pattern="[A-Za-z0-9 ]{2,30}" required>
+        <input type="text" name="phone" placeholder="Phone" required>
+
+        <select name="language">
+            <option value="en">English</option>
+            <option value="rw">Kinyarwanda</option>
+        </select>
+
+        <input type="text" name="months" placeholder="Number of months" required>
+        <input type="text" name="initial_payment" placeholder="Initial payment" required>
+
+        <button type="button" onclick="nextStep(3)">Next</button>
+    </div>
+
+    <!-- STEP 3 -->
+    <div id="step3" style="display:none;">
+        <h3>Step 3: Signature</h3>
+        <input type="file" name="signature">
+
+        <button type="submit">Generate Letter</button>
+    </div>
+</form>
+
+<script>
+let currentStep = 1;
+
+// Auto-clean TIN (digits only)
+document.addEventListener("DOMContentLoaded", function () {
+    const tinInput = document.querySelector('input[name="tin"]');
+
+    tinInput.addEventListener("input", function () {
+        // remove non-digits
+        this.value = this.value.replace(/\D/g, '');
+    });
+});
+
+// Move to next step with validation
+function nextStep(step) {
+
+    if (step === 2) {
+        // STEP 1 VALIDATION
+        const tin = document.querySelector('input[name="tin"]').value.trim();
+        const email = document.querySelector('input[name="email"]').value.trim();
+
+        // ✅ TIN: must start with 1 and be 9 digits
+        if (!/^1\d{8}$/.test(tin)) {
+            alert("TIN must start with 1 and be exactly 9 digits");
+            return;
+        }
+
+        // ✅ Better email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            alert("Enter a valid email address");
+            return;
+        }
+    }
+
+    if (step === 3) {
+        // STEP 2 VALIDATION
+        const name = document.querySelector('input[name="name"]').value.trim();
+        const months = document.querySelector('input[name="months"]').value.trim();
+        const payment = document.querySelector('input[name="initial_payment"]').value.trim();
+
+        // ✅ Name validation
+        if (!/^[A-Za-z0-9 ]{2,30}$/.test(name)) {
+            alert("Name must be 2–30 characters (letters/numbers only)");
+            return;
+        }
+
+        // ✅ Months must be number > 0
+        if (!/^\d+$/.test(months) || parseInt(months) <= 0) {
+            alert("Number of months must be a positive number");
+            return;
+        }
+
+        // ✅ Payment must be number > 0
+        if (!/^\d+(\.\d+)?$/.test(payment) || parseFloat(payment) <= 0) {
+            alert("Initial payment must be a valid positive number");
+            return;
+        }
+    }
+
+    // Hide all steps
+    document.getElementById("step1").style.display = "none";
+    document.getElementById("step2").style.display = "none";
+    document.getElementById("step3").style.display = "none";
+
+    // Show selected step
+    document.getElementById("step" + step).style.display = "block";
+
+    currentStep = step;
+}
+
+// Submit validation
+document.getElementById("form").addEventListener("submit", function (e) {
+
+    const tin = document.querySelector('input[name="tin"]').value.trim();
+
+    if (!/^1\d{8}$/.test(tin)) {
+        alert("Invalid TIN format");
+        e.preventDefault();
+        return;
+    }
+
+    const fileInput = document.querySelector('input[name="signature"]');
+
+    if (fileInput.files.length === 0) {
+        const confirmNoSig = confirm(
+            "No signature uploaded. Continue with typed name as signature?"
+        );
+        if (!confirmNoSig) {
+            e.preventDefault();
+            return;
+        }
+    }
+
+    // ✅ SHOW SPINNER
+    const overlay = document.getElementById("loadingOverlay");
+    overlay.style.display = "flex";
+
+    // ✅ DISABLE BUTTON
+    const submitBtn = document.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerText = "Generating...";
+
+});
+</script>
+
+<!-- LOADING OVERLAY -->
+<div id="loadingOverlay" style="
+    display:none;
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.5);
+    z-index:9999;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    color:white;
+    font-size:18px;
+">
+    <div class="spinner"></div>
+    <p>Generating your letter...</p>
+</div>
+
+</body>
+</html>

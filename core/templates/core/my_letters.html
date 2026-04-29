@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Letters</title>
+    <style>
+        body {
+            font-family: Arial;
+            max-width: 700px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+        }
+
+        button {
+            background-color: #2c7be5;
+            color: white;
+            border: none;
+        }
+
+        .letter {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<h2>My Letters</h2>
+
+<form method="POST">
+    {% csrf_token %}
+    <input type="text" name="tin" placeholder="Enter your TIN" required>
+    <button type="submit">Search</button>
+</form>
+
+{% if error %}
+    <p style="color:red;">{{ error }}</p>
+{% endif %}
+
+{% if letters %}
+    <h3>Results for TIN: {{ tin }}</h3>
+
+    {% for letter in letters %}
+        <div class="letter">
+            <p><strong>Date:</strong> {{ letter.created_at }}</p>
+            <a href="{{ letter.file.url }}" target="_blank">Download Letter</a>
+        </div>
+    {% endfor %}
+{% endif %}
+
+</body>
+</html>
