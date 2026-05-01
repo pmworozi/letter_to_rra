@@ -4,9 +4,14 @@ def generate_letter(profile, language="en", months=None, initial_payment=None):
 
     today = date.today().strftime("%d/%m/%Y")
 
-    # Safe defaults (prevents broken letters)
+    # Safe defaults
     months = months or "[not provided]"
-    initial_payment = initial_payment or "[not provided]"
+
+    # Format payment safely
+    try:
+        formatted_payment = "{:,.0f}".format(float(initial_payment))
+    except (TypeError, ValueError):
+        formatted_payment = initial_payment or "[not provided]"
 
     # Reference number generator
     def generate_reference():
@@ -36,9 +41,9 @@ Impamvu: gusaba kwishyura mu byiciro
 Nyakubahwa Komiseri,
 
 Nanditse nsaba kwishyura mu byiciro umusoro mbereyemo RRA.
-Nkaba nifuza kwishyura uwo musoro mu {months}.
+Nkaba nifuza kwishyura uwo musoro mu mezi {months}.
 
-Nkuko nabisabwe, nkaba nishyuye icyiciro cya mbere kingana na {initial_payment}.
+Nkuko nabisabwe, nkaba nishyuye icyiciro cya mbere kingana na {formatted_payment}.
 
 Mu gihe ngitegereje igisubizo cyanyu cyiza mbaye mbashimiye.
 
@@ -56,7 +61,7 @@ Date: {today}
 Reference: {reference_no}
 
 
-To: Deputy Commissioner in charge of Arrears Management
+To: Assistant Commissioner in charge of Debt Management
 KIGALI
 
 
@@ -69,7 +74,7 @@ I am writing to request permission to pay my outstanding tax liabilities in inst
 
 I propose to settle the amount over a period of {months} months.
 
-As required, I have already made an initial payment of {initial_payment}.
+As required, I have already made an initial payment of {formatted_payment}.
 
 While awaiting your positive response, I thank you in advance.
 

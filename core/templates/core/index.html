@@ -46,24 +46,59 @@
     <!-- STEP 1 -->
     <div id="step1">
         <h3>Step 1: Basic Info</h3>
-        <input type="text" name="tin" placeholder="TIN" pattern="\d{9}" required>
-        <input type="email" name="email" placeholder="Email" required>
+
+        <input type="text"
+               name="tin"
+               placeholder="TIN"
+               pattern="\d{9}"
+               maxlength="9"
+               required>
+
+        <input type="email"
+               name="email"
+               placeholder="Email"
+               required>
+
         <button type="button" onclick="nextStep(2)">Next</button>
     </div>
 
     <!-- STEP 2 -->
     <div id="step2" style="display:none;">
         <h3>Step 2: Details</h3>
-        <input type="text" name="name" placeholder="Full Name" pattern="[A-Za-z0-9 ]{2,30}" required>
-        <input type="text" name="phone" placeholder="Phone" required>
+
+        <input type="text"
+               name="name"
+               placeholder="Full Name"
+               pattern="[A-Za-z0-9 ]{2,30}"
+               required>
+
+        <input type="text"
+               name="phone"
+               placeholder="Phone"
+               required>
 
         <select name="language">
             <option value="en">English</option>
             <option value="rw">Kinyarwanda</option>
         </select>
 
-        <input type="text" name="months" placeholder="Number of months" required>
-        <input type="text" name="initial_payment" placeholder="Initial payment" required>
+        <!-- MONTHS -->
+        <input type="number"
+               name="months"
+               placeholder="Number of months"
+               min="2"
+               max="12"
+               step="1"
+               required>
+
+        <!-- INITIAL PAYMENT -->
+        <input type="number"
+               name="initial_payment"
+               placeholder="Initial payment"
+               min="50000"
+               max="5000000"
+               step="1000"
+               required>
 
         <button type="button" onclick="nextStep(3)">Next</button>
     </div>
@@ -71,7 +106,11 @@
     <!-- STEP 3 -->
     <div id="step3" style="display:none;">
         <h3>Step 3: Signature</h3>
-        <input type="file" name="signature">
+
+        <input type="file"
+               name="signature"
+               accept="image/png, image/jpeg"
+               required>
 
         <button type="submit">Generate Letter</button>
     </div>
@@ -149,37 +188,45 @@ function nextStep(step) {
 }
 
 // Submit validation
-document.getElementById("form").addEventListener("submit", function (e) {
+document.getElementById("form").addEventListener("submit", async function(e) {
+    e.preventDefault();
 
-    const tin = document.querySelector('input[name="tin"]').value.trim();
+    const form = e.target;
+    const formData = new FormData(form);
 
-    if (!/^1\d{8}$/.test(tin)) {
-        alert("Invalid TIN format");
-        e.preventDefault();
-        return;
-    }
+    // 🔴 DEBUG (VERY IMPORTANT)
+    console.log("Submitting form...");
 
-    const fileInput = document.querySelector('input[name="signature"]');
+    try {
+        const response = await fetch("/api/generate-letter/", {
+            method: "POST",
+            body: formData
+        });
 
-    if (fileInput.files.length === 0) {
-        const confirmNoSig = confirm(
-            "No signature uploaded. Continue with typed name as signature?"
-        );
-        if (!confirmNoSig) {
-            e.preventDefault();
+        console.log("Response status:", response.status);
+
+        if (!response.ok) {
+            const text = await response.text();
+            alert("Error: " + text);
             return;
         }
+
+        const blob = await response.blob();
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "letter.pdf";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        console.log("Download triggered");
+
+    } catch (err) {
+        console.error(err);
+        alert("Request failed");
     }
-
-    // ✅ SHOW SPINNER
-    const overlay = document.getElementById("loadingOverlay");
-    overlay.style.display = "flex";
-
-    // ✅ DISABLE BUTTON
-    const submitBtn = document.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.innerText = "Generating...";
-
 });
 </script>
 

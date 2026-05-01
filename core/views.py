@@ -12,6 +12,8 @@ from django.shortcuts import render
 import re
 from django.core.files.base import ContentFile
 from .models import UserProfile, GeneratedLetter
+from PIL import Image as PILImage
+import io
 
 def home(request):
     return render(request, "core/index.html")
@@ -45,7 +47,6 @@ def save_profile(request):
     return JsonResponse({"error": "Invalid request method"}, status=400)
 
 
-# GENERATE LETTER PDF API
 def generate_letter_api(request):
     if request.method == "POST":
 
@@ -61,18 +62,65 @@ def generate_letter_api(request):
         email = data.get("email", "")
         name = data.get("name", "")
 
-        # ✅ VALIDATION
+        # =========================
+        # VALIDATION
+        # =========================
+
         if not re.fullmatch(r"1\d{8}", tin):
-            return JsonResponse({
-                "error": "Wrong TIN"
-            }, status=400)
+            return JsonResponse({"error": "TIN must start with 1 and be 9 digits"}, status=400)
 
         if name and not re.fullmatch(r"[A-Za-z0-9 ]{2,30}", name):
-            return JsonResponse({
-                "error": "Name must be 2–30 characters (letters/numbers only)"
-            }, status=400)
+            return JsonResponse({"error": "Name must be 2–30 characters (letters/numbers only)"}, status=400)
 
-        # ✅ CREATE / UPDATE PROFILE (ONLY ONCE)
+        if not signature_file:
+            return JsonResponse({"error": "Signature is required"}, status=400)
+
+        if signature_file.content_type not in ["image/jpeg", "image/png"]:
+            return JsonResponse({"error": "Signature must be JPG or PNG"}, status=400)
+
+        # =========================
+        # PROCESS SIGNATURE (SAFE + ORIGINAL QUALITY)
+        # =========================
+
+        try:
+            image = PILImage.open(signature_file)
+
+            # Ensure it's a real image
+            image.verify()
+            signature_file.seek(0)
+            image = PILImage.open(signature_file)
+
+        except (UnidentifiedImageError, OSError):
+            return JsonResponse(
+                {"error": "Invalid signature file. Please upload a valid JPG or PNG image."},
+                status=400
+            )
+
+        # Normalize mode only if needed
+        if image.mode not in ("RGB", "RGBA"):
+            image = image.convert("RGBA")
+
+        # Only resize if image is TOO LARGE (not always)
+        max_width, max_height = 1000, 500
+
+        if image.width > max_width or image.height > max_height:
+            image.thumbnail((max_width, max_height), PILImage.LANCZOS)
+
+            buffer_img = io.BytesIO()
+            image.save(buffer_img, format=image.format or "PNG")  # keep original format
+            buffer_img.seek(0)
+
+            signature_file = ContentFile(
+                buffer_img.read(),
+                name=f"{tin}_signature.png"
+            )
+
+        # 👉 If image is already small, keep it AS-IS (no processing)
+
+        # =========================
+        # SAVE PROFILE
+        # =========================
+
         profile, _ = UserProfile.objects.update_or_create(
             tin=tin,
             defaults={
@@ -86,8 +134,43 @@ def generate_letter_api(request):
         language = data.get("language", "en")
         months = data.get("months")
         initial_payment = data.get("initial_payment")
+        try:
+            formatted_payment = "{:,.0f}".format(float(initial_payment))
+        except (TypeError, ValueError):
+            formatted_payment = initial_payment
 
-        # Generate letter text
+        # =========================
+        # NUMERIC VALIDATION
+        # =========================
+
+        # Ensure months is numeric
+        try:
+            months = int(months)
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Months must be a number"}, status=400)
+
+        if months < 2 or months > 12:
+            return JsonResponse(
+                {"error": "Months must be between 2 and 12"},
+                status=400
+            )
+
+        # Ensure initial payment is numeric
+        try:
+            initial_payment = float(initial_payment)
+        except (TypeError, ValueError):
+            return JsonResponse({"error": "Initial payment must be a number"}, status=400)
+
+        if initial_payment < 50000 or initial_payment > 5000000:
+            return JsonResponse(
+                {"error": "Initial payment must be between 50,000 and 5,000,000"},
+                status=400
+            )
+
+        # =========================
+        # GENERATE LETTER
+        # =========================
+
         letter_text = generate_letter(
             profile,
             language=language,
@@ -96,151 +179,171 @@ def generate_letter_api(request):
         )
 
         buffer = BytesIO()
-        doc = SimpleDocTemplate(buffer)
+
+        # ✅ FIXED MARGINS
+        doc = SimpleDocTemplate(
+            buffer,
+            leftMargin=40,
+            rightMargin=40,
+            topMargin=40,
+            bottomMargin=40
+        )
+
         styles = getSampleStyleSheet()
 
-        normal = styles["Normal"]
+        clean = ParagraphStyle(
+            name="Clean",
+            parent=styles["Normal"],
+            leftIndent=0,
+            spaceBefore=0,
+            spaceAfter=0
+        )
 
         bold = ParagraphStyle(
             name="Bold",
-            parent=styles["Normal"],
+            parent=clean,
             fontName="Helvetica-Bold"
         )
 
         right_style = ParagraphStyle(
             name="Right",
-            parent=styles["Normal"],
+            parent=clean,
             alignment=TA_RIGHT
         )
 
-        signature_style = ParagraphStyle(
-            name="Signature",
-            parent=styles["Normal"],
-            fontName="Helvetica-Oblique",
-            fontSize=14
-        )
-
-        # Extract date
+        # Extract date safely
         lines = letter_text.splitlines()
-        date_line = [l for l in lines if "Date:" in l][0]
+        date_line = next((l for l in lines if "Date:" in l), "")
 
-        # HEADER
+        # =========================
+        # HEADER (FIXED ALIGNMENT)
+        # =========================
+
         header_table = Table([
             [
                 Paragraph(
                     f"{profile.name}<br/>TIN: {profile.tin}<br/>Tel: {profile.phone}<br/>Email: {profile.email}",
-                    normal
+                    clean
                 ),
                 Paragraph(f"{date_line}", right_style)
             ]
-        ], colWidths=[300, 200])
+        ], colWidths=[350, 150])
 
         header_table.setStyle(TableStyle([
-            ('VALIGN', (0, 0), (-1, -1), 'TOP')
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
         ]))
 
         content = []
         content.append(header_table)
         content.append(Spacer(1, 25))
 
-        # Recipient + Subject
+        # =========================
+        # BODY (NO INDENTATION)
+        # =========================
+
         if language == "rw":
             content.append(Paragraph(
-                "Komiseri Wungirije ushinzwe gucunga ibirarane<br/>KIGALI",
-                normal
-            ))
-            content.append(Spacer(1, 15))
-
-            content.append(Paragraph(
-                "<b>Impamvu: gusaba kwishyura mu byiciro</b>",
-                bold
-            ))
-            content.append(Spacer(1, 15))
-
-            content.append(Paragraph("Nyakubahwa Komiseri,", normal))
-        else:
-            content.append(Paragraph(
-                "To: Deputy Commissioner in charge of Arrears Management<br/>KIGALI",
-                normal
-            ))
-            content.append(Spacer(1, 15))
-
-            content.append(Paragraph(
-                "<b>Subject: Request for installment payment</b>",
-                bold
-            ))
-            content.append(Spacer(1, 15))
-
-            content.append(Paragraph("Dear Sir/Madam,", normal))
-
-        content.append(Spacer(1, 15))
-
-        # BODY
-        if language == "rw":
-            content.append(Paragraph(
-                f"Nanditse nsaba kwishyura mu byiciro umusoro mbereyemo RRA. "
-                f"Nkaba nifuza kwishyura uwo musoro mu {months}.",
-                normal
+                f"Nanditse nsaba kwishyura mu byiciro umusoro mbereyemo RRA. Nkaba nifuza kwishyura uwo musoro mu mezi {months}.",
+                clean
             ))
             content.append(Spacer(1, 10))
 
             content.append(Paragraph(
-                f"Nkuko nabisabwe, nkaba nishyuye icyiciro cya mbere kingana na {initial_payment}.",
-                normal
+                f"Nkuko nabisabwe, nkaba nishyuye icyiciro cya mbere kingana na {formatted_payment}.",
+                clean
+
             ))
+           
             content.append(Spacer(1, 10))
 
             content.append(Paragraph(
-                "Mu gihe ngitegereje igisubizo cyanyu cyiza mbaye mbashimiye.",
-                normal
+                f"Mu gihe ngitegereje igisubizo cyanyu cyiza mbaye mbashimiye.",
+                clean
             ))
+            content.append(Spacer(1, 30))
+
         else:
             content.append(Paragraph(
                 "I am writing to request permission to pay my outstanding tax liabilities in installments.",
-                normal
+                clean
             ))
             content.append(Spacer(1, 10))
 
             content.append(Paragraph(
                 f"I propose to settle the amount over a period of {months} months.",
-                normal
+                clean
             ))
             content.append(Spacer(1, 10))
 
             content.append(Paragraph(
-                f"As required, I have already made an initial payment of {initial_payment}.",
-                normal
+                f"As required, I have already made an initial payment of {formatted_payment}.",
+                clean
             ))
             content.append(Spacer(1, 10))
 
             content.append(Paragraph(
-                "While awaiting your positive response, I thank you in advance.",
-                normal
+                f"While awaiting your positive response, I thank you in advance.",
+                clean
             ))
 
-        content.append(Spacer(1, 30))
-
-        # Closing
-        if language == "rw":
-            content.append(Paragraph("Murakoze.", normal))
-        else:
-            content.append(Paragraph("Yours faithfully,", normal))
-
-        content.append(Spacer(1, 20))
-
-        # SIGNATURE
-        if profile.signature and hasattr(profile.signature, 'path') and os.path.exists(profile.signature.path):
-            content.append(Image(profile.signature.path, width=120, height=50))
             content.append(Spacer(1, 10))
-            content.append(Paragraph(profile.name, bold))
-        else:
-            content.append(Paragraph(profile.name, signature_style))
+
+            content.append(Paragraph(
+                f"Yours faithfully,",
+                clean
+            ))
+
+            content.append(Spacer(1, 30))
+
+
+        # =========================
+        # SIGNATURE (LEFT PERFECT)
+        # =========================
+
+        # =========================
+        # SIGNATURE (MATCH PYTHONANYWHERE SIZE)
+        # =========================
+
+        sig = Image(profile.signature.path)
+
+        # Base width
+        target_width = 120
+        sig.drawWidth = target_width
+        sig.drawHeight = sig.imageHeight * (target_width / sig.imageWidth)
+
+        # ✅ LIMIT HEIGHT (this is the missing piece)
+        max_height = 50
+
+        if sig.drawHeight > max_height:
+            ratio = max_height / sig.drawHeight
+            sig.drawHeight = max_height
+            sig.drawWidth = sig.drawWidth * ratio
+
+        signature_table = Table([[sig]], colWidths=[500])
+
+        signature_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+            ('LEFTPADDING', (0, 0), (0, 0), 0),
+            ('RIGHTPADDING', (0, 0), (0, 0), 0),
+            ('TOPPADDING', (0, 0), (0, 0), 0),
+            ('BOTTOMPADDING', (0, 0), (0, 0), 0),
+        ]))
+
+        content.append(Paragraph(profile.name))
+        content.append(Spacer(1, 5))
+        content.append(signature_table)
 
         doc.build(content)
 
         buffer.seek(0)
+        # =========================
+        # SAVE PDF
+        # =========================
 
-        # ✅ SAVE PDF TO DATABASE
         file_name = f"letter_{profile.tin}.pdf"
         pdf_file = ContentFile(buffer.getvalue(), name=file_name)
 
@@ -249,13 +352,10 @@ def generate_letter_api(request):
             file=pdf_file
         )
 
-        # Return file
         return HttpResponse(
             buffer,
             content_type="application/pdf",
-            headers={
-                "Content-Disposition": "attachment; filename=letter.pdf"
-            },
+            headers={"Content-Disposition": "attachment; filename=letter.pdf"},
         )
 
     return JsonResponse({"error": "Invalid request method"}, status=400)
