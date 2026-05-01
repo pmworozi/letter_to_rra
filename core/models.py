@@ -19,6 +19,9 @@ class UserProfile(models.Model):
         return f"{self.name} ({self.tin})"
     
 class GeneratedLetter(models.Model):
-    profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE)
+    profile = models.OneToOneField(UserProfile, on_delete=models.CASCADE)
     file = models.FileField(upload_to="letters/")
     created_at = models.DateTimeField(auto_now_add=True)
+
+class Meta:
+    unique_together = ('profile',)
