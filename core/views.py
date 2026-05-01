@@ -347,9 +347,9 @@ def generate_letter_api(request):
         file_name = f"letter_{profile.tin}.pdf"
         pdf_file = ContentFile(buffer.getvalue(), name=file_name)
 
-        GeneratedLetter.objects.create(
+        GeneratedLetter.objects.update_or_create(
             profile=profile,
-            file=pdf_file
+            defaults={"file": pdf_file}
         )
 
         return HttpResponse(
