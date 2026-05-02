@@ -18,17 +18,15 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from core.views import home  
-from core.views import my_letters 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    path('', home),           
+    #  ALL frontend pages handled in core.urls
+    path('', include('core.urls')),
 
-    path('api/', include('core.urls')),
-
-    path('my-letters/', my_letters),
+    # API endpoints (keep separate)
+    path('api/', include('core.api_urls')),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

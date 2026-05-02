@@ -16,6 +16,9 @@ from PIL import Image as PILImage
 import io
 
 def home(request):
+    return render(request, "core/home.html")  # or index.html if you're using that
+
+def index(request):
     return render(request, "core/index.html")
 
 # SAVE PROFILE API

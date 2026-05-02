@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>MyTax - Home</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+
+        /* NAVBAR */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 40px;
+            background-color: #0a3d62;
+            color: white;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: bold;
+        }
+
+        .nav-links a {
+            margin-left: 20px;
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+
+        /* HERO */
+        .hero {
+            text-align: center;
+            padding: 80px 20px;
+            background: linear-gradient(to right, #0a3d62, #3c6382);
+            color: white;
+        }
+
+        .hero h1 {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .hero p {
+            font-size: 18px;
+            margin-bottom: 25px;
+        }
+
+        .hero a {
+            background-color: #f39c12;
+            color: white;
+            padding: 12px 25px;
+            border-radius: 5px;
+            text-decoration: none;
+            margin: 5px;
+            display: inline-block;
+        }
+
+        .hero a:hover {
+            background-color: #e67e22;
+        }
+
+        /* SERVICES */
+        .services {
+            padding: 50px 40px;
+            text-align: center;
+        }
+
+        .services h2 {
+            margin-bottom: 30px;
+        }
+
+        .card-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            width: 260px;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            transition: 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-3px);
+        }
+
+        .card h3 {
+            margin-bottom: 10px;
+        }
+
+        .card p {
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .card a {
+            display: inline-block;
+            padding: 8px 15px;
+            background-color: #0a3d62;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+
+        .card a:hover {
+            background-color: #3c6382;
+        }
+
+        /* ADS */
+        .ads {
+            margin: 40px auto;
+            width: 80%;
+            height: 100px;
+            background-color: #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            border-radius: 8px;
+        }
+
+        /* FOOTER */
+        .footer {
+            text-align: center;
+            padding: 20px;
+            background-color: #0a3d62;
+            color: white;
+            margin-top: 40px;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .card-container {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
+        /* STATUS MESSAGE (future API feedback use) */
+        .status-box {
+            display: none;
+            margin: 20px auto;
+            padding: 12px;
+            width: 80%;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .success {
+            background: #e6ffe6;
+            color: #006600;
+        }
+
+        .error {
+            background: #ffe6e6;
+            color: #b30000;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+<div class="navbar">
+    <div class="logo">MyTax</div>
+    <div class="nav-links">
+        <a href="{% url 'home' %}">Home</a>
+        <a href="{% url 'letters' %}">Services</a>
+        <a href="{% url 'my_letters' %}">My Letters</a>
+    </div>
+</div>
+
+<!-- STATUS MESSAGE (future-ready) -->
+<div id="statusBox" class="status-box"></div>
+
+<!-- HERO -->
+<div class="hero">
+    <h1>Welcome to MyTax</h1>
+    <p>Your smart assistant for managing tax services easily</p>
+
+    <a href="{% url 'letters' %}">Generate Letter</a>
+    <a href="{% url 'my_letters' %}">View My Letters</a>
+</div>
+
+<!-- SERVICES -->
+<div class="services">
+    <h2>Our Services</h2>
+
+    <div class="card-container">
+
+        <div class="card">
+            <h3>📄 Letter to RRA</h3>
+            <p>Request installment payment for tax arrears</p>
+            <a href="{% url 'letters' %}">Open</a>
+        </div>
+
+        <div class="card">
+            <h3>💰 Payment Planner</h3>
+            <p>Plan your tax payments efficiently</p>
+            <a href="#">Coming Soon</a>
+        </div>
+
+        <div class="card">
+            <h3>📊 Compliance Tools</h3>
+            <p>Check your tax compliance status</p>
+            <a href="#">Coming Soon</a>
+        </div>
+
+    </div>
+</div>
+
+<!-- ADS -->
+<div class="ads">
+    Advertisement Space
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+    © 2026 MyTax | All rights reserved
+</div>
+
+</body>
+</html>

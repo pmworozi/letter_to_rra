@@ -1,7 +1,8 @@
 from django.urls import path
-from .views import save_profile, generate_letter_api
+from .views import home, my_letters, index
 
 urlpatterns = [
-    path('generate-letter/', generate_letter_api),
-    path('save-profile/', save_profile),
+    path('', home, name='home'),
+    path('letters/', index, name='letters'),
+    path('my-letters/', my_letters, name='my_letters'),
 ]
